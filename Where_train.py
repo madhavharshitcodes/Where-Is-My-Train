@@ -1,20 +1,16 @@
 import tkinter as tk
+from datetime import datetime
 
 import requests
-from PIL import Image, ImageTk
 
 API_KEY = "qhx3wzhx26"
-BASE_URL = "https://api.railwayapi.com/v2/live/train/"
+BASE_URL = "https://indianrailapi.com/api/v2/livetrainstatus"
 
 
 root = tk.Tk()
 root.geometry("1366x768")
 root.title("Live Train Status")
 root.config(bg="pink")
-
-img = ImageTk.PhotoImage(Image.open("rail-701x394.jpg"))
-panel = tk.Label(root, image=img, bg="pink")
-panel.place(x=701, y=394)
 
 tk.Label(root, text="Live Train Status", width=20, font=("bold", 15), fg="brown", bg="pink").place(x=90, y=83)
 
@@ -36,32 +32,66 @@ def set_output(train_name: str, source: str, destination: str, position: str) ->
     label_6.configure(text=position)
 
 
+def to_api_date(input_date: str) -> str:
+    return datetime.strptime(input_date, "%d-%m-%Y").strftime("%Y%m%d")
+
+
 def live() -> None:
     train_number = entry_1.get().strip()
     current_date = entry_2.get().strip()
-    complete_url = f"{BASE_URL}{train_number}/date/{current_date}/apikey/{API_KEY}/"
+
+    if not train_number.isdigit():
+        set_output("Invalid Input", "Train number must be digits", "", "")
+        return
+
+    try:
+        api_date = to_api_date(current_date)
+    except ValueError:
+        set_output("Invalid Input", "Date must be DD-MM-YYYY", "", "")
+        return
+
+    complete_url = f"{BASE_URL}/apikey/{API_KEY}/trainnumber/{train_number}/date/{api_date}/"
 
     try:
         response = requests.get(complete_url, timeout=10)
         response.raise_for_status()
         result = response.json()
 
-        if result.get("response_code") != 200:
-            set_output("Error", "Error", "Error", "Error")
+        if "response_code" in result:
+            if result.get("response_code") != 200:
+                set_output("API Error", "Request failed", "", "")
+                return
+
+            route = result.get("route", [])
+            if not route:
+                set_output("API Error", "No route data", "", "")
+                return
+
+            train_name = str(result.get("train", {}).get("name", "Unknown"))
+            source_station = str(route[0].get("station", {}).get("name", "Unknown"))
+            destination_station = str(route[-1].get("station", {}).get("name", "Unknown"))
+            position = str(result.get("position", "Unknown"))
+            set_output(train_name, source_station, destination_station, position)
             return
 
-        route = result.get("route", [])
-        if not route:
-            set_output("Error", "Error", "Error", "Error")
+        response_code = str(result.get("ResponseCode", ""))
+        if response_code != "200":
+            message = str(result.get("Message", "API request failed"))
+            set_output("API Error", message[:35], "", "")
             return
 
-        train_name = str(result.get("train", {}).get("name", "Unknown"))
-        source_station = str(route[0].get("station", {}).get("name", "Unknown"))
-        destination_station = str(route[-1].get("station", {}).get("name", "Unknown"))
-        position = str(result.get("position", "Unknown"))
+        train_name = str(result.get("TrainName") or result.get("Train") or "Train")
+        source_station = str(result.get("Source") or result.get("StartStation") or "Unknown")
+        destination_station = str(result.get("Destination") or result.get("EndStation") or "Unknown")
+        position = str(
+            result.get("CurrentStation")
+            or result.get("Position")
+            or result.get("TrainStatus")
+            or "Live status received"
+        )
         set_output(train_name, source_station, destination_station, position)
     except (requests.RequestException, ValueError, KeyError, TypeError):
-        set_output("Error", "Error", "Error", "Error")
+        set_output("Network Error", "Unable to reach API", "Check internet/API key", "")
 
 
 label_3 = tk.Label(root, text="...", width=30, font=("bold", 8), fg="black", bg="pink")
