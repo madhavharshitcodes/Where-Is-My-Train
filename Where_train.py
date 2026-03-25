@@ -1,79 +1,81 @@
-from tkinter import *
-import requests, json
-from PIL import ImageTk,Image
+import tkinter as tk
 
-root = Tk()
-root.geometry('1366x768')
+import requests
+from PIL import Image, ImageTk
+
+API_KEY = "qhx3wzhx26"
+BASE_URL = "https://api.railwayapi.com/v2/live/train/"
+
+
+root = tk.Tk()
+root.geometry("1366x768")
 root.title("Live Train Status")
-root.config(bg='pink')
+root.config(bg="pink")
 
-img = ImageTk.PhotoImage(Image.open('rail-701x394.jpg'))
-panel = Label(root,image=img,bg='pink')
-panel.place(x=701,y=394)
+img = ImageTk.PhotoImage(Image.open("rail-701x394.jpg"))
+panel = tk.Label(root, image=img, bg="pink")
+panel.place(x=701, y=394)
 
-lable_0 = Label(root,text="Live Train Status",width = 20,font=("bold",15),fg='brown',bg='pink')
-lable_0.place(x=90,y=83)
+tk.Label(root, text="Live Train Status", width=20, font=("bold", 15), fg="brown", bg="pink").place(x=90, y=83)
 
-lable_1 = Label(root,text="Train Number : ",width = 20,font=("bold",10),fg='black',bg='pink')
-lable_1.place(x=60,y=130)
-numbers = StringVar()
-entry_1 = Entry(root,textvariable=numbers)
-entry_1.place(x=200,y=130)
-numbers.set("Ex : 12056")
+tk.Label(root, text="Train Number : ", width=20, font=("bold", 10), fg="black", bg="pink").place(x=60, y=130)
+numbers = tk.StringVar(value="Ex : 12056")
+entry_1 = tk.Entry(root, textvariable=numbers)
+entry_1.place(x=200, y=130)
 
-lable_2 = Label(root,text="Today's Date : ",width = 20,font=("bold",10),fg='black',bg='pink')
-lable_2.place(x=60,y=160)
-dates = StringVar()
-entry_2 = Entry(root,textvariable=dates)
-entry_2.place(x=200,y=160)
-dates.set("Ex : 01-07-2018")
+tk.Label(root, text="Today's Date : ", width=20, font=("bold", 10), fg="black", bg="pink").place(x=60, y=160)
+dates = tk.StringVar(value="Ex : 01-07-2018")
+entry_2 = tk.Entry(root, textvariable=dates)
+entry_2.place(x=200, y=160)
 
 
-def live():
-    api_key = "qhx3wzhx26"
-    base_url = "https://api.railwayapi.com/v2/live/train/"
-    train_number = entry_1.get()
-    current_date = entry_2.get()
-    complete_url = base_url + train_number + "/date/" + current_date + "/apikey/" + api_key + "/"
-
-    response_ob = requests.get(complete_url)
-    result = response_ob.json()
+def set_output(train_name: str, source: str, destination: str, position: str) -> None:
+    label_3.configure(text=train_name)
+    label_4.configure(text=source)
+    label_5.configure(text=destination)
+    label_6.configure(text=position)
 
 
-    if result["response_code"] == 200:
+def live() -> None:
+    train_number = entry_1.get().strip()
+    current_date = entry_2.get().strip()
+    complete_url = f"{BASE_URL}{train_number}/date/{current_date}/apikey/{API_KEY}/"
+
+    try:
+        response = requests.get(complete_url, timeout=10)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("response_code") != 200:
+            set_output("Error", "Error", "Error", "Error")
+            return
+
+        route = result.get("route", [])
+        if not route:
+            set_output("Error", "Error", "Error", "Error")
+            return
+
+        train_name = str(result.get("train", {}).get("name", "Unknown"))
+        source_station = str(route[0].get("station", {}).get("name", "Unknown"))
+        destination_station = str(route[-1].get("station", {}).get("name", "Unknown"))
+        position = str(result.get("position", "Unknown"))
+        set_output(train_name, source_station, destination_station, position)
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        set_output("Error", "Error", "Error", "Error")
 
 
-        train_name = result["train"]["name"]
-        y = result["route"]
-        source_station = y[0]["station"]["name"]
-        destination_station = y[len(y) - 1]["station"]["name"]
-        position = result["position"]
-        lable_3.configure(text=str(train_name))
-        lable_4.configure(text=str(source_station))
-        lable_5.configure(text=str(destination_station))
-        lable_6.configure(text=str(position))
-    else:
-        lable_3.configure(text="Error")
-        lable_4.configure(text="Error")
-        lable_5.configure(text="Error")
-        lable_6.configure(text="Error")
+label_3 = tk.Label(root, text="...", width=30, font=("bold", 8), fg="black", bg="pink")
+label_3.place(x=110, y=240)
+label_4 = tk.Label(root, text="...", width=30, font=("bold", 8), fg="black", bg="pink")
+label_4.place(x=110, y=260)
+label_5 = tk.Label(root, text="...", width=30, font=("bold", 8), fg="black", bg="pink")
+label_5.place(x=110, y=280)
+label_6 = tk.Label(root, text="...", width=50, font=("bold", 8), fg="black", bg="pink")
+label_6.place(x=50, y=300)
 
+tk.Label(root, text="Indian Railway", width=20, font=("bold", 8), fg="black", bg="pink").place(x=140, y=340)
+tk.Label(root, text="Developed by Shreekant Gosavi", width=30, font=("bold", 8), fg="black", bg="pink").place(x=110, y=360)
 
+tk.Button(root, text="Show", width=20, bg="brown", fg="white", command=live).place(x=130, y=200)
 
-lable_3 = Label(root,text="...",width = 30,font=("bold",8),fg='black',bg='pink')
-lable_3.place(x=110,y=240)
-lable_4 = Label(root,text="...",width = 30,font=("bold",8),fg='black',bg='pink')
-lable_4.place(x=110,y=260)
-lable_5 = Label(root,text="...",width = 30,font=("bold",8),fg='black',bg='pink')
-lable_5.place(x=110,y=280)
-lable_6 = Label(root,text="...",width = 50,font=("bold",8),fg='black',bg='pink')
-lable_6.place(x=50,y=300)
-
-lable_7 = Label(root,text="Indian Railway",width = 20,font=("bold",8),fg='black',bg='pink')
-lable_7.place(x=140,y=340)
-lable_8 = Label(root,text="Developed by Shreekant Gosavi",width = 30,font=("bold",8),fg='black',bg='pink')
-lable_8.place(x=110,y=360)
-
-Button(root,text="Show",width=20,bg='brown',fg='white',command=live).place(x=130,y=200)
-
-mainloop()
+root.mainloop()
